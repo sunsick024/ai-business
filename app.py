@@ -36,6 +36,29 @@ def to_gemini_contents(messages):
     ]
 
 
+# ---------- 비밀번호 확인 ----------
+def check_password() -> bool:
+    if st.session_state.get("authed"):
+        return True
+    st.title("🔒 AI 학습 도우미")
+    correct = st.secrets.get("APP_PASSWORD", "")
+    if not correct:
+        st.error("APP_PASSWORD가 Secrets에 설정되지 않았어요.")
+        return False
+    pw = st.text_input("비밀번호를 입력하세요", type="password")
+    if pw:
+        if pw == correct:
+            st.session_state.authed = True
+            st.rerun()
+        else:
+            st.error("비밀번호가 틀렸어요.")
+    return False
+
+
+if not check_password():
+    st.stop()
+
+
 # ---------- 사이드바 ----------
 with st.sidebar:
     st.header("⚙️ 학습 설정")
