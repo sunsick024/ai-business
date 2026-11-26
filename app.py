@@ -8,7 +8,7 @@ st.set_page_config(page_title="AI 학습 도우미", page_icon="📚", layout="c
 
 # 앞에서부터 차례로 시도합니다. 첫 모델이 혼잡(503)하면 다음 모델로 넘어가요.
 # 모델 이름이 안 맞으면 이 목록만 바꾸세요.
-MODELS = ["gemini-3.5-flash", "gemini-3.7-flash"]
+MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
 
 STYLE_PROMPTS = {
     "쉬운 설명": "초보자도 이해할 수 있도록 쉬운 말과 비유로 설명하세요.",
