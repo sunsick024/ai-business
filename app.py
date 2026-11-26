@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -5,7 +6,9 @@ from google.genai import types
 # ---------- 기본 설정 ----------
 st.set_page_config(page_title="AI 학습 도우미", page_icon="📚", layout="centered")
 
-MODEL = "gemini-3.5-flash"  # 모델 이름이 안 맞으면 이 줄만 바꾸세요
+# 앞에서부터 차례로 시도합니다. 첫 모델이 혼잡(503)하면 다음 모델로 넘어가요.
+# 모델 이름이 안 맞으면 이 목록만 바꾸세요.
+MODELS = ["gemini-3.5-flash", "gemini-3.7-flash"]
 
 STYLE_PROMPTS = {
     "쉬운 설명": "초보자도 이해할 수 있도록 쉬운 말과 비유로 설명하세요.",
@@ -34,6 +37,28 @@ def to_gemini_contents(messages):
         )
         for m in messages
     ]
+
+
+def stream_with_fallback(client, contents, config):
+    """503 등 일시 오류가 나면 잠시 후 재시도하고, 안 되면 다음 모델로 넘어갑니다."""
+    last_err = None
+    for model in MODELS:
+        for attempt in range(2):
+            got_text = False
+            try:
+                for chunk in client.models.generate_content_stream(
+                    model=model, contents=contents, config=config
+                ):
+                    if chunk.text:
+                        got_text = True
+                        yield chunk.text
+                return
+            except Exception as e:
+                last_err = e
+                if got_text:  # 답변 도중 끊기면 다시 시도하지 않음
+                    raise
+                time.sleep(2)
+    raise last_err
 
 
 # ---------- 비밀번호 확인 ----------
@@ -99,15 +124,13 @@ if prompt := st.chat_input("질문을 입력하세요 (예: 의사결정나무�
     with st.chat_message("assistant"):
         try:
             client = genai.Client(api_key=api_key)
-            stream = client.models.generate_content_stream(
-                model=MODEL,
-                contents=to_gemini_contents(st.session_state.messages),
-                config=types.GenerateContentConfig(
-                    system_instruction=build_system_prompt(subject, level, style),
-                    max_output_tokens=1500,
-                ),
+            config = types.GenerateContentConfig(
+                system_instruction=build_system_prompt(subject, level, style),
+                max_output_tokens=1500,
             )
-            answer = st.write_stream(chunk.text for chunk in stream if chunk.text)
+            answer = st.write_stream(
+                stream_with_fallback(client, to_gemini_contents(st.session_state.messages), config)
+            )
         except Exception as e:
             answer = f"⚠️ 오류가 발생했어요: {e}"
             st.error(answer)
